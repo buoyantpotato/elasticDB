@@ -24,35 +24,23 @@ echo "check access from local to $i"
 ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@$i "hostname"
 done
 
-
-echo "*** Sync elastic db ***********************************"
+echo "*** Generate key on all servers ***********************************"
 for i in $MASTER ${SLAVE[@]} ${CANDIDATE[@]}
 do
-echo "sync to $i"
-ssh root@$i "rm -rf $HOME"
-ssh root@$i "mkdir -p $HOME"
-scp -r $CURRENT_HOME root@$i:$HOME
-scp -r $TPCW_HOME root@$i:$HOME
+echo "remove key on $i"
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@$i "rm -rf /root/.ssh/id_rsa"
+echo "generate key on $i"
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@$i "ssh-keygen -f /root/.ssh/id_rsa -t rsa -N ''"
 done
 
 
 # Check scp to all servers
-echo "*** Check scp to all servers ***********************************"
+echo "*** make connection from all servers to all servers ***********************************"
 for i in $MASTER ${SLAVE[@]} ${CANDIDATE[@]}
 do
 for j in $MASTER ${SLAVE[@]} ${CANDIDATE[@]}
 do
-echo "$i at $j"
-ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@$i "ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@$j "hostname""
+echo "make connection from $i to $j"
+ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@$i "cat /root/.ssh/id_rsa.pub" | ssh -o StrictHostKeyChecking=no -o BatchMode=yes root@$j 'cat >> .ssh/authorized_keys'
 done
-done
-
-
-# Change my.cnf to open to everywhere
-echo "*** Change my.cnf to open to everywhere ***********************************"
-for i in $MASTER ${SLAVE[@]} ${CANDIDATE[@]}
-do
-echo "configure mysql at $i"
-ssh root@$i "sed -i "s/127.0.0.1/0.0.0.0/ig" /etc/mysql/my.cnf"
-ssh root@$i "/etc/init.d/mysql restart"
 done
